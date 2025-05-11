@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>交通費申請フォーム</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      background-color: #f8f8f8;
+    }
+    form {
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 600px;
+      margin: auto;
+    }
+    label {
+      display: block;
+      margin-top: 1rem;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.3rem;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      margin-top: 1.5rem;
+      padding: 0.7rem 1.5rem;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <form id="expenseForm">
+    <h2>交通費申請フォーム</h2>
+
+    <label for="date">日付</label>
+    <input type="date" id="date" name="date" required>
+
+    <label for="destinationType">行先</label>
+    <select id="destinationType" name="destinationType" required>
+      <option value="">選択してください</option>
+      <option value="常勤店舗">常勤店舗</option>
+      <option value="他店舗応援">他店舗応援</option>
+      <option value="研修">研修</option>
+      <option value="MTG">MTG</option>
+    </select>
+
+    <label for="destinationName">行先名称</label>
+    <input type="text" id="destinationName" name="destinationName" required>
+
+    <label for="expenseType">経費項目</label>
+    <select id="expenseType" name="expenseType" required>
+      <option value="">選択してください</option>
+      <option value="電車">電車</option>
+      <option value="バス">バス</option>
+      <option value="新幹線/特急">新幹線/特急</option>
+      <option value="タクシー">タクシー</option>
+      <option value="航空機">航空機</option>
+      <option value="高速バス">高速バス</option>
+    </select>
+
+    <label for="from">出発地</label>
+    <input type="text" id="from" name="from" required>
+
+    <label for="to">到着地</label>
+    <input type="text" id="to" name="to" required>
+
+    <button type="button" onclick="openSearchLink()">乗換案内で検索する</button>
+    <p id="searchLinkArea"></p>
+
+    <label for="fare">金額を選択</label>
+    <input type="text" id="fareText" style="opacity: 0; height: 0; position: absolute; left: -9999px;" />
+    <button type="button" onclick="extractFare()">金額を抽出</button>
+    <select id="fare" name="fare" required disabled>
+      <option value="">※検索後の金額を抽出してください</option>
+    </select>
+
+    <label for="day">
+     交通費発生日付（1～31）<br>
+     <small style="color: gray;">※Ctrl（⌘）キーを押しながら複数選択できます</small>
+    </label>
+    <select id="day" name="day" multiple size="10" required>
+     <script>
+       document.write(
+         [...Array(31).keys()].map(i =>
+           `<option value="${i + 1}">${i + 1}日</option>`
+         ).join('')
+       );
+     </script>
+    </select>
+
+
+    <label for="count">上記金額での出勤数合計（1～23）</label>
+    <select id="count" name="count" required>
+      <option value="">選択してください</option>
+      <script>
+        document.write([...Array(23).keys()].map(i => `<option value="${i+1}">${i+1}回</option>`).join(''));
+      </script>
+    </select>
+
+    <button type="submit">申請する</button>
+  </form>
+
+<script>
+function openSearchLink() {
+  const from = document.getElementById("from").value.trim();
+  const to = document.getElementById("to").value.trim();
+
+  if (!from || !to) {
+    alert("出発地と到着地を入力してください");
+    return;
+  }
+
+  const yahooUrl = `https://transit.yahoo.co.jp/search/result?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+  const jorudanUrl = `https://www.jorudan.co.jp/norikae/cgi/nori.cgi?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+
+  const area = document.getElementById("searchLinkArea");
+  area.innerHTML = `
+    <p>以下の乗換案内サイトで検索してください：</p>
+    <ul>
+      <li><a href="${yahooUrl}" target="_blank">Yahoo!乗換案内で検索</a></li>
+      <li><a href="${jorudanUrl}" target="_blank">ジョルダン乗換案内で検索</a></li>
+    </ul>
+    <p>検索後、表示された金額をコピーして「金額を抽出」ボタンを押してください。</p>
+  `;
+}
+
+function extractFare() {
+  const fareSelect = document.getElementById("fare");
+
+  navigator.clipboard.readText().then(text => {
+    // 金額候補の正規表現で一致（例: ¥450, 450円, ￥1200 など）
+    const matches = text.match(/(?:¥|￥)?\d{2,5}(?:円)?/g);
+
+    if (matches && matches.length > 0) {
+      const uniqueFares = [...new Set(
+        matches.map(f => f.replace(/[^\d]/g, '')) // 数字のみに変換
+      )].filter(f => f);
+
+      fareSelect.innerHTML = '<option value="">金額を選択してください</option>';
+      uniqueFares.forEach(f => {
+        const option = document.createElement("option");
+        option.value = f;
+        option.textContent = `${f}円`;
+        fareSelect.appendChild(option);
+      });
+
+      fareSelect.disabled = false;
+    } else {
+      alert("金額が見つかりませんでした。もう一度コピーしてから実行してください。");
+      fareSelect.innerHTML = '<option>金額が見つかりません</option>';
+      fareSelect.disabled = true;
+    }
+  }).catch(err => {
+    alert("クリップボードから読み取れませんでした。再度コピーしてから試してください。");
+  });
+}
+</script>
+
+<script>
+document.getElementById("expenseForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+
+  const form = e.target;
+  const data = new URLSearchParams(new FormData(form));
+
+  fetch("https://script.google.com/macros/s/＜あなたのデプロイURL＞/exec", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: data.toString()
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error("サーバーエラー");
+    }
+    return response.text();
+  })
+  .then(result => {
+    alert("申請が送信されました！");
+    form.reset();
+  })
+  .catch(error => {
+    alert("送信中にエラーが発生しました。");
+    console.error("送信エラー:", error);
+  });
+});
+</script>
+
+
+</body>
+</html>
